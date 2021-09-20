@@ -7,7 +7,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-This assignment is due by 6 pm on the evening of the 3rd class. It should be submitted via Github.
+This assignment is due by 6 pm on the evening of the 5th class. It should be submitted via Github.
 
 #### Textbook
 -   [Chapter 12 - Tidy data](https://r4ds.had.co.nz/tidy-data.html)
