@@ -14,8 +14,8 @@ No two datasets require the same data cleaning in order to prepare them for anal
 | Points:           | 5                              |
 | Display grade as: | Points                         |
 | Submission type:  | Via Github                     |
-| Due date:         | October 25, 2021, during class |
-| Available from:   | October 18, 12:00 am           |
+| Due date:         | October 25, 2021, 5:59 pm      |
+| Available from:   | October 18, 2021, 12:00 am     |
 | Until:            |                                |
 
 Complete all questions in the `Week_04_Assignment.Rmd` file.
