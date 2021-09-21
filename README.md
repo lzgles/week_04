@@ -1,5 +1,7 @@
 # Week 4 - Data cleaning tools
 
+## Description and Topics
+
 No two datasets require the same data cleaning in order to prepare them for analysis. A variety of tools are needed in order to perform data transformations. We will explore a variety of functions that aid in this process. Topics covered will include:
 
 -   Utilizing conditional statements using `if_else` and `case_when`
