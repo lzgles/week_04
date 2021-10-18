@@ -9,6 +9,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 #### Exercises
 
+1. Use the following code chunk to get started with the assignment. This chunk loads the `tidyverse` and `here` packages. Why does this work? What is the `pacman` package and why is it valuable?
+
 ```{r}
 if(! require("pacman")) install.packages("pacman")
 
@@ -18,47 +20,47 @@ pacman::p_load(
 )
 ```
 
-1. Read the `burritos.csv` file located in the `Data` folder into an object called `burritos`.
+2. Read the `burritos.csv` file located in the `Data` folder into an object called `burritos`.
 
 ```{r}
 
 ```
 
-2. Determine how many `NA` values exist in each column.
+3. Determine how many `NA` values exist in each column.
 
 ```{r}
 
 ```
 
-3. Many of the columns in the dataset use `x` to indicate whether or not the burrito includes the ingredient or not. Convert these columns into logical columns. Overwrite the original dataframe with the newly mutated dataframe.
+4. Many of the columns in the dataset use `x` to indicate whether or not the burrito includes the ingredient or not. Convert these columns into logical columns. Overwrite the original dataframe with the newly mutated dataframe.
 
 ```{r}
 
 ```
 
-4. For these same fields, determine how many burritos include each ingredient.
+5. For these same fields, determine how many burritos include each ingredient.
 
 ```{r}
 
 ```
 
-5. Several of the burritos are missing Yelp and Google review values. Replace the missing values by imputing them with the *median* of their respective column. Overwrite the original dataframe with the newly mutated dataframe.
+6. Several of the burritos are missing Yelp and Google review values. Replace the missing values by imputing them with the *median* of their respective column. Overwrite the original dataframe with the newly mutated dataframe.
 
 ```{r}
 
 ```
 
-6. Similarly, several of the burritos are missing `Length`, `Circum`, and `Volume` values. Replace the missing values by imputing them with the *mean* of their respective column. Overwrite the original dataframe with the newly mutated dataframe.
+7. Similarly, several of the burritos are missing `Length`, `Circum`, and `Volume` values. Replace the missing values by imputing them with the *mean* of their respective column. Overwrite the original dataframe with the newly mutated dataframe.
 
 ```{r}
 
 ```
 
-7. The `Rec` column is messy. Convert it to a logical field. Overwrite the original dataframe with the newly mutated dataframe.
+8. The `Rec` column is messy. Convert it to a logical field. Overwrite the original dataframe with the newly mutated dataframe.
 
 ```{r}
 
 ```
 
-8. Create and answer three questions to answer about the burritos dataset.
+9. Create and answer a question to answer about the burritos dataset utilizing any of the techniques we discussed in class this week. Utilize themes to improve your visualization.
 
