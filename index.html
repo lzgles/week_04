@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Foundations of R</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Ryan Harrington" />
+    <meta name="date" content="2021-10-11" />
+    <script src="index_files/header-attrs/header-attrs.js"></script>
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+    <link rel="stylesheet" href="custom.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+
+
+
+
+
+
+
+
+
+class: animated, fadeIn, content-slide
+layout: true
+
+---
+
+class: title-slide, middle
+layout: false
+
+# Foundations of R for Data Analysis
+
+### Week 04: Data Cleaning Tools
+
+Ryan Harrington&lt;br&gt;
+October 18, 2021&lt;br&gt;
+University of Delaware&lt;br&gt;
+College of Professional &amp; Continuing Studies
+
+---
+
+class: content-slide
+
+# Questions We'll Answer Today
+
+### 🎲 What are some of the qualities of the world's best boardgames?&lt;br&gt;
+### 🧹 What are some best practices for my workflow?&lt;br&gt;
+### 🔍 What are some methods for dealing with missing data?&lt;br&gt;
+### ↔️ How can I manipulate multiple fields at once?&lt;br&gt;
+### 📊 How can I make my graphs look more professional?&lt;br&gt;
+
+---
+
+class: content-slide
+
+# Review of Week 2 Assignment
+
+---
+
+class: middle
+background-image: url("images/bgg_opengraph.png")
+background-position: center
+background-size: contain
+
+
+
+
+.pull-left[
+&gt; &lt;p style="color:white"&gt;This dataset contains data collected on board games from the &lt;a href = "https://boardgamegeek.com/"&gt;BoardGameGeek&lt;/a&gt; (BGG) website in February 2021. BGG is the largest online collection of board game data which consists of data on more than 100,000 total games (ranked and unranked).&lt;/p&gt;
+
+&gt; &lt;p style="color:white"&gt;The voluntary online community contributes to the site with reviews, ratings, images, videos, session reports and live discussion forums on the expanding database of board games.&lt;/p&gt;
+
+&gt; &lt;p style="color:white"&gt;This data set contains all ranked games (~20,000) as of the date of collection from the BGG database. Unranked games are ignored as they have not been rated by enough BGG users (a game should receive at least 30 votes to be eligible for ranking).&lt;/p&gt;
+
+&lt;a href = "https://www.kaggle.com/andrewmvd/board-games" style="color:white"&gt;Source: Kaggle&lt;/a&gt;
+
+]
+
+---
+
+class: content-slide
+
+# Loading your data
+
+Clone the `week_04` repository on GitHub.
+
+Load the appropriate packages for us to work this week:
+
+* `tidyverse`
+* `here`
+
+Read the `bgg_dataset.csv` file into your environment. You'll find it in the `Data` folder.
+
+--
+
+Note that the file is semi-colon delimited, so you'll need to use the `read_csv2` function.
+
+
+```r
+boardgames &lt;- 
+  read_csv2(here::here("Data", "bgg_dataset.csv"))
+```
+
+---
+
+class: content-slide
+
+# Reading scripts from other files
+
+If you observe the `boardgames` data frame you will notice a few fields that are somewhat problematic for us to work with, but that could be interesting to explore - `Mechanics` and `Domains`.
+
+Doing that cleaning is a bit advanced for us right now, but conveniently there's a script we can take advantage of that is already written that will do the work for us. You'll find it in the `Scripts` folder.
+
+This demonstrates a common practice that you may want to adopt yourself - creating separate scripts for logical portions of your workstream. Note that the script is called `01_Clean_Boardgames.R`. It is a descriptive filename that tells the user what will happen in the script. It is also numbered in order to allow another user to understand the order in which the file should be run as part of the analysis.
+
+You can run this script from inside of another `R` script. We do this with `source`.
+
+
+```r
+source(here::here("Scripts", "01_Clean_Boardgames.R"))
+```
+
+Note that the `boardgames_clean` object now exists in your environment.
+
+---
+
+class: content-slide
+
+# Better column names
+
+You might notice that many of the columns include spaces in the names: `Year Published`, `Min Players`, `Max Players`, etc. You'll need to do a little extra typing in order to work with these columns. For example, let's quickly get a count of the `Year Published`. While we're at it, let's graph it.
+
+
+```r
+boardgames_clean %&gt;% 
+  count(`Year Published`, sort = T) %&gt;% 
+  ggplot(aes(x = `Year Published`,
+             y = n)) +
+  geom_line()
+```
+
+Notice that in order to use the field name we have to encapsulate it in back ticks. This can be annoying to continuously type in your code. A great solution for this is to clean up your field names. Enter the `janitor` package.
+
+
+```r
+library(janitor)
+```
+
+```r
+boardgames_clean &lt;- clean_names(boardgames_clean)
+```
+
+---
+
+class: content-slide
+
+# What qualities lead to a high average rating?
+
+There are several questions that this dataset lends itself to answering:
+
+* What mechanics are usually paired with each other? (an example of market basket analysis)
+* Are there clusters of board games that are similar to each other? (an example of unsupervised learning)
+* Can we predict the average rating? (an example of regression)
+
+For our purposes today, we're going to explore this dataset with the mindset that we want to determine what qualities of the boardgame are most associated with a high average rating.
+
+---
+
+class: content-slide
+
+# Explore `rating_average`
+
+When we start an analysis, it's often helpful to understand everything that we can about our dependent variable.
+
+As this is a continuous variable, a good place to start is by creating a histogram. As we've discussed, distributions are a great way to understand our data.
+
+
+```r
+boardgames_clean %&gt;% 
+  ggplot(aes(x = rating_average)) +
+  geom_histogram()
+```
+The histogram for `rating_average` is normal with a mean of 6.4 and a standard deviation of 0.94. This is normally great for any kind of modeling we may want to perform.
+
+We should also check if there are any missing values in our dependent variable. There are none in this variable, but there are in others. We'll want to explore those and deal with them.
+
+---
+
+class: content-slide
+
+# Dealing with `year_published`
+
+We saw from our graph earlier that there are some somewhat unexpected values in the `year_published` field. In particular, there were a lot of values at 0 and several values much lower than 0. It would be helpful to take a look at these to get a better understanding of what those games are.
+
+
+```r
+boardgames_clean %&gt;% 
+  filter(year_published &lt;= 0) %&gt;% 
+  arrange(year_published)
+```
+
+Observing the data, it seems that the games published before year 0 are correct. These are all classic games such as Senet, Backgammon, and Marbles.
+
+However, when we look at the games published in year 0, that pattern does not hold up. For example, it seems unlikely that "Eat Poop You Cat" was actually created in year 0. In fact, it seems more likely that 0 is being used as a placeholder for "unknown". It may be more appropriate to fill these values with `NA`.
+
+---
+
+class: content-slide
+
+# Dealing with `year_published`
+
+In order to deal with this, we need to take advantage of the `if_else` function. This function utilizes the following syntax:
+
+
+```r
+if_else(condition, true, false)
+```
+
+Note the description of the function in the vignette:
+
+&gt; Compared to the base ifelse(), this function is more strict. .text-highlight[It checks that true and false are the same type.] This strictness makes the output type more predictable, and makes it somewhat faster.
+
+We want to replace any values where `year_published` equals 0 with `NA`, but otherwise keep its value.
+
+
+```r
+boardgames_clean %&gt;% 
+  mutate(year_published = if_else(condition = year_published == 0, 
+                                  true = NA, 
+                                  false = year_published))
+```
+This doesn't work. `R` is angry. We must appease it.
+
+---
+
+class: content-slide
+
+# Dealing with `year_published`
+
+Let's examine the error that we get when we run the function:
+
+
+```r
+Error: Problem with `mutate()` input `year_published`. x `false` 
+must be a logical vector, not a double vector. ℹ Input `year_published` is 
+`if_else(condition = year_published == 0, true = NA, false = year_published)`.
+```
+
+The issue that we're running into is that the `true` and `false` parameters must be of the same type. `NA` is considered logical, but `year_published` is a double. We'll need to correct this. As it turns out, there is one `NA` for each atomic class. These are `NA`, `NA_character_`, `NA_integer_`, `NA_real_`, and `NA_complex_`.
+
+
+```r
+boardgames_clean &lt;- 
+  boardgames_clean %&gt;% 
+  mutate(year_published = if_else(condition = year_published == 0, 
+                                  true = NA_real_, 
+                                  false = year_published))
+```
+
+---
+
+class: content-slide
+
+# Dealing with player counts
+
+There are two fields worth evaluating in conjunction with each other: `min_players` and `max_players`. Logically, the `max_players` field should be at least as large as the `min_players` field. Is this always true?
+
+
+```r
+boardgames_clean %&gt;% 
+  mutate(players_greater_flag = if_else(max_players &gt;= min_players, T, F)) %&gt;% 
+  count(players_greater_flag)
+```
+
+.pull-left[
+How should we deal with this? Let's use `if_else` to adjust the `max_player` field. One method would be to add the median player difference to any observation where the `max_players` is less than the `min_players`.
+
+Note the use of `pull` - this is a nice function to extract values from the data frame to a vector.
+]
+
+.pull-right[
+
+```r
+players_diff_median &lt;- boardgames_clean %&gt;% 
+  summarize(players_diff_med = median(max_players - min_players)) %&gt;% 
+  pull()
+
+boardgames_clean &lt;- boardgames_clean %&gt;% 
+  mutate(max_players = if_else(max_players &gt;= min_players,
+                               max_players,
+                               min_players + players_diff_median))
+```
+]
+
+---
+
+class: content-slide
+
+# Exploring double fields
+
+Let's explore some of the other double fields. For example, we might explore the **`complexity_average`**, `play_time`, and `owned_users` fields. Start by checking the distributions of the fields.
+
+
+```r
+boardgames_clean %&gt;% 
+  ggplot(aes(x = complexity_average)) +
+  geom_histogram()
+```
+
+It is notable that there is such a large gap between 0 and 1. If we were truly exploring this dataset, this might cause us to question why this is true. It seems likely that the lowest value that could be selected is a 1 and that 0 is being utilized as a placeholder for "unknown". We'll want to follow up and confirm this, though.
+
+---
+
+class: content-slide
+
+# Exploring double fields
+
+Let's explore some of the other double fields. For example, we might explore the `complexity_average`, **`play_time`**, and `owned_users` fields. Start by checking the distributions of the fields.
+
+
+```r
+boardgames_clean %&gt;% 
+  ggplot(aes(x = play_time)) +
+  geom_histogram()
+```
+
+The `play_time` field requires additional exploration. Whenever you see this shape in your histogram - a large number of values near 0 and a long tail - you may want to consider checking for a log-normal distribution.
+
+
+```r
+boardgames_clean %&gt;% 
+* mutate(play_time = log10(play_time)) %&gt;%
+  ggplot(aes(x = play_time)) +
+  geom_histogram()
+```
+
+```r
+boardgames_clean &lt;- boardgames_clean %&gt;% 
+  mutate(play_time_log = log10(play_time))
+```
+
+
+---
+
+class: content-slide
+
+# Exploring double fields
+
+Let's explore some of the other double fields. For example, we might explore the `complexity_average`, `play_time`, and **`owned_users`** fields. Start by checking the distributions of the fields.
+
+
+```r
+boardgames_clean %&gt;% 
+  ggplot(aes(x = owned_users)) +
+  geom_histogram()
+```
+
+Seeing the same type of distribution, we should try the same type of cleaning technique.
+
+
+```r
+boardgames_clean %&gt;% 
+  mutate(owned_users_log = log10(owned_users)) %&gt;% 
+  ggplot(aes(x = owned_users)) +
+  geom_histogram()
+```
+
+
+```r
+boardgames_clean &lt;- boardgames_clean %&gt;% 
+  mutate(owned_users_log = log10(owned_users))
+```
+
+---
+
+class: content-slide
+
+# Checking for missingness
+
+If we're working towards building a model, we'll likely have to deal with missing values. Some modeling techniques are robust to missing values while others are not.
+
+There are generally two ways to deal with missing values:
+
+* Remove observations that include a missing value
+* Keep the observation and impute the missing value
+
+There is no one right way to do this. Rather, your particular situation will dictate what makes the most sense.
+
+We're going to demonstrate a simple method for imputation for the `play_time` and `owned_users` fields. Let's start by checking how many `NA`s there are in each of these fields.
+
+
+```r
+boardgames_clean %&gt;% 
+  summary()
+```
+
+---
+
+class: content-slide
+
+# A simple method for imputation
+
+Let's look back at the `play_time` field first. It has 556 `NA`s which we will want to deal with.
+
+A simple method for imputation is to insert the median wherever there is a `NA`. Consider how you might do this by utilizing `if_else`. The `is.na` function will return `TRUE` for a `NA` value and `FALSE` otherwise. We can use this paired with `if_else` to assist with the imputation.
+
+
+```r
+boardgames_clean &lt;- boardgames_clean %&gt;% 
+  mutate(play_time = if_else(is.na(play_time), median(play_time, na.rm = T), play_time))
+```
+
+Consider how you might improve this imputation. 
+
+A slightly more advanced method might be to consider if there are differences in `play_time` based upon categories such as the domain or the mechanic. You may also consider the correlation between `play_time` and some continuous fields, such as player count or complexity.
+
+A more advanced method would be to use modeling based approach. The [`mice`](https://amices.org/mice/) package is a popular way to do this. It implements a method called "**M**ultivariate **I**mputation by **C**hained **E**quations". We won't cover this methodology here, but it's worth exploring!
+
+---
+
+class: content-slide
+
+# A simple method for imputation
+
+Now let's look at the `owned_users` field. It has 24 `NA`s which we will want to deal with.
+
+Consider applying the same methodology as we did previously.
+
+
+```r
+boardgames_clean &lt;- boardgames_clean %&gt;% 
+  mutate(owned_users = if_else(is.na(owned_users), median(owned_users, na.rm = T), owned_users))
+```
+
+---
+
+class: content-slide
+
+# An alternate method: `replace_na`
+
+Needing to deal with `NA`s is a pretty common issue. Much like how `count` was a great shortcute, the `replace_na` function is also a great shortcut.
+
+
+```r
+boardgames_clean %&gt;% 
+  mutate(owned_users = replace_na(owned_users, median(owned_users, na.rm = T)))
+```
+
+
+---
+
+class: content-slide
+
+# Multiple conditions with `case_when`
+
+A common step you may take when cleaning your data is to bucket your observations.
+
+Let's consider the `play_time` field again. There is a wide amount of variation in the field. Log normalizing the field is one step that we already considered to adjusting it. However, this can be a bit challenging to interpet.
+
+Another way to approach this could be to bucket the observations. Let's break our data up as follows:
+
+* Any games with a `play_time` less than 30 minutes should be considered "fast games"
+* Any games with a `play_time` between 30 minutes and 120 minutes should be considered "average games"
+* Any games with a `play_time` greater than 120 minutes should be considered "long games"
+
+You *could* do this by nesting `if_else` statements inside of each other. This isn't a great practice, though. It can be challenging to read your code with this approach. The `case_when` function solves this challenge.
+
+---
+
+class: content-slide
+
+# Multiple conditions with `case_when`
+
+If you have worked with SQL before, `case_when` is the same as `CASE WHEN`. Here's what the syntax looks like:
+
+
+```r
+case_when(
+  logical_statement_1 ~ value_1,
+  logical_statement_2 ~ value_2,
+  ...
+)
+```
+
+The logical statements are evaluated in order, so there are times when you'll want to be considerate about the order that you write them. It's a good practice to go from the most general statement to most specific. 
+
+
+```r
+boardgames_clean &lt;- boardgames_clean %&gt;% 
+  mutate(play_time_bins = case_when(
+    play_time &lt;= 30 ~ "fast game",
+    play_time &gt; 30 &amp; play_time &lt;= 120 ~ "average game",
+    play_time &gt; 120 ~ "long game"
+  ))
+```
+
+---
+
+class: content-slide
+
+# Multiple conditions with `case_when`
+
+Consider the `max_players` field. This field also has a wide amount of variation. We may be better off creating buckets for the purposes of analysis. Here's how you may want to bin the `max_players` field:
+
+* Any games with `max_players` of 3 or less should be considered "small games"
+* Any games with `max_players` between 3 and 5 should be considered "medium games"
+* Any games with `max_players` between 5 and 10 should be considered "large games"
+* Any games with `max_players` greater than 10 should be considered "huge games"
+
+
+
+```r
+boardgames_clean &lt;- boardgames_clean %&gt;% 
+  mutate(max_players_bins = case_when(
+    max_players &lt;= 3 ~ "small games",
+    max_players &gt; 3 &amp; max_players &lt;= 5 ~ "medium games",
+    max_players &gt; 5 &amp; max_players &lt;= 10 ~ "big games",
+    max_players &gt; 10 ~ "huge games"
+  ))
+```
+
+---
+
+class: content-slide
+
+# Applying transformations `across` fields
+
+The fields that include the most `NA` values are the `mechanic_*` and `domain_*` fields.
+
+If we look at the `mechanic_*` fields in particular, we notice that a `1` indicates that the game utilized that mechanic otherwise it a `NA`. It would be valuable to convert this into a logical field such that a `1` becomes `TRUE`, otherwise it is `FALSE`. The `if_else` function would be valuable to use in this case.
+
+
+```r
+boardgames_clean %&gt;% 
+  mutate(mechanic_cooperative_game = if_else(mechanic_cooperative_game == 1, T, F))
+```
+
+Note that the `NA` values are not replaced with `FALSE`. By design, the `NA` values are not evaluated. We have two options. We can either utilize `replace_na` to change the `NA`s into `FALSE` values...or we can just be a bit creative with how we set up our `if_else` statement.
+
+
+```r
+boardgames_clean %&gt;% 
+  mutate(mechanic_cooperative_game = if_else(is.na(mechanic_cooperative_game), F, T))
+```
+
+Much better. Now go do this for all of the `mechanic_*` fields.
+
+---
+
+class: content-slide
+
+# Applying transformations `across` fields
+
+You're right. This would be extremely tedious. There has to be a better way to accomplish this task.
+
+Instead of only applying our transformation to a single field, we may want to apply our transformation to *many* fields. The `across` function is perfect for making this happen.
+
+
+```r
+boardgames_clean &lt;- boardgames_clean %&gt;% 
+  mutate(across(starts_with("mechanic"), ~if_else(is.na(.), F, T)))
+```
+
+Let's break down this code:
+
+* `across` is utilized inside of `mutate`. It can also be utilized inside of `summarize`
+* The first argument that `across` takes is `.cols`. By default it will apply the transformation to `everything`. You can explicitly name columns or utilize the same tidy-select helpers that we discussed in week 03 to apply the transformation to.
+* The second argument that `across` takes is `.fns`. There are a few ways to utilize `.fns`. We are using a "purrr-style lambda" in order to apply our functionYou'll need to utilize the `~` operator for this approach. Note that the `.` is used as a placeholder for our column name, but otherwise the function looks the same as when we applied it to one column.
+
+
+---
+
+class: content-slide
+
+# Applying transformations `across` fields
+
+Let's try this for the `domain_*` fields. You'll notice that they're relatively similar to how the `mechanic_*` fields are created, but they utilize an `x` instead of a `1` to indicate that the game is included in a particular domain.
+
+
+```r
+boardgames_clean &lt;- boardgames_clean %&gt;% 
+  mutate(across(starts_with("domain"), ~if_else(is.na(.), F, T)))
+```
+
+---
+
+class: content-slide
+
+# Applying transformations `across` fields
+
+So far, we've only used the `across` function in partnership with `if_else`. It can be used with any function, though. Consider earlier in our analysis, we created two new columns for `play_time` and `owned_users` in order to deal with the log-normal nature of those fields. These were called `play_time_log` and `owned_users_log` respectively. The problem is that we created those fields before we dealt with the missing values.
+
+Let's recreate those fields using `across`. We'll remove them first:
+
+
+```r
+boardgames_clean &lt;- boardgames_clean %&gt;% 
+  select(-ends_with("log"))
+```
+
+And then recreate them:
+
+
+```r
+boardgames_clean %&gt;% 
+  mutate(across(c(play_time, owned_users), ~log10(.)))
+```
+
+Problem. This overwrote our original columns. Sometimes it's useful to overwrite our original columns such as in our `mechanic_*` and `domain_*` examples. In this case we *want* to add new columns. 
+
+---
+
+class: content-slide
+
+# Applying transformations `across` fields
+
+To solve this problem, we can utilize the `.names` argument in the `across` function. Here's how that works:
+
+&gt; A glue specification that describes how to name the output columns. This can use `{.col}` to stand for the selected column name, and `{.fn}` to stand for the name of the function being applied. The default (`NULL`) is equivalent to "`{.col}`" for the single function case and "`{.col}_{.fn}`" for the case where a list is used for .fns.
+
+[`glue`](https://glue.tidyverse.org/) is just a particular way of pasting strings together in `R`.
+
+Here's how we might apply this for our example:
+
+
+```r
+boardgames_clean &lt;- boardgames_clean %&gt;% 
+  mutate(across(c(play_time, owned_users), ~log10(.), .names = "{.col}_log"))
+```
+
+
+---
+
+class: content-slide
+
+# Applying transformations `across` fields
+
+We can use `across` to quickly create summary statistics for multiple fields. So far we have only utilized `across` with `mutate`. Consider how we might use it with `summarize`.
+
+Let's determine the median value of all double fields by utilizing `across` and `summarize` together.
+
+
+```r
+boardgames_clean %&gt;%
+  summarize(across(c(where(is.double)), ~median(.)))
+```
+
+Earlier we created two bin fields: `play_time_bins` and `max_player_bins`. Calculate these same values while considering these groups. Also, we probably do not need to evaluate the `id` or `year_published` fields.
+
+
+```r
+boardgames_clean %&gt;%
+  group_by(play_time_bins, max_players_bins) %&gt;%
+  summarize(across(c(where(is.double), -id, -year_published), ~median(.))) %&gt;% 
+  ungroup()
+```
+
+
+---
+
+class: content-slide
+
+# Applying transformations `across` fields
+
+While performing analyses, I like to frequently check how many `NA` values are in my fields. `summary` will tell you this information, but I often just want the number of `NA`s.
+
+You can accomplish this with `across` and `summarize`.
+
+
+
+```r
+boardgames_clean %&gt;% 
+  summarize(across(everything(), ~ sum(is.na(.))))
+```
+
+In this case, I notice that there are still `NA` values in both `id` and `year_published`. If we were continuing our analysis, we may want to consider how to deal with the missing values in each of those fields.
+
+---
+
+class: content-slide
+
+# Building better graphs
+
+We've been practicing building graphs with `ggplot2` over the last several weeks. We have interacted with the basic grammar elements, particularly `data`, `aes`, and `geom_*` with a hint of `stat` and `position`.
+
+These plots are functional, but not aesthetically pleasing. We can do so much more to improve the visual appearance of our graphs. We can do this through themes.
+
+---
+
+class: content-slide
+
+# Boardgames published by year
+
+.left-code[
+Let's revisit the graph that we built at the beginning of class, exploring how the number of games published by year changes over time.
+
+
+```r
+boardgames_year &lt;- 
+  boardgames_clean %&gt;% 
+  count(year_published, sort = T) 
+
+boardgames_year %&gt;% 
+  ggplot(aes(x = year_published,
+             y = n)) +
+  geom_line()
+```
+]
+
+.right-plot[
+&lt;img src="index_files/figure-html/by-year-out-1.png" width="100%" /&gt;
+]
+
+---
+
+# Boardgames published by year
+
+Before we finish graphing this, let's take a look at our underlying data.
+
+
+```r
+boardgames_year %&gt;% 
+  arrange(year_published)
+```
+
+You might notice that there are some missing years. There are many missing years at first with progressively less over time. In order to accurately represent our graph, we'll actually want to make sure that these years are represented. The `complete` function will allow us to do this.
+
+
+```r
+boardgames_year &lt;- 
+  boardgames_year %&gt;% 
+  complete(year_published = seq(from = min(boardgames_year$year_published, na.rm = T),
+                                to = max(boardgames_year$year_published, na.rm = T))) %&gt;% 
+  mutate(n = replace_na(n, 0))
+```
+
+
+---
+
+class: content-slide
+
+# Default themes
+
+.left-code[
+
+```r
+boardgames_year %&gt;% 
+  ggplot(aes(x = year_published,
+             y = n)) +
+  geom_line() +
+* theme_minimal()
+```
+
+By default, `ggplot2` utilizes this gray theme. There are a few defaults that you can use that you might prefer. For example, `theme_minimal`.
+
+Play with the other default themes to see your preference: `theme_bw`, `theme_linedraw`, `theme_light`, `theme_dark`, `theme_minimal`, `theme_classic`, `theme_void.`
+]
+
+.right-plot[
+&lt;img src="index_files/figure-html/by-year-theme-out-1.png" width="100%" /&gt;
+]
+
+---
+
+class: content-slide
+
+# Changing labels
+
+.left-code[
+
+```r
+boardgames_year %&gt;% 
+  ggplot(aes(x = year_published,
+             y = n)) +
+  geom_line() +
+* labs(x = "Year Published",
+*      y = "Count",
+*      title = "Boardgames Published by Year") +
+  theme_minimal()
+```
+
+When you're iterating on your own or on your team it might be okay to keep your labels as your field names. The `labs` argument allows you to specify your own labels, though.
+]
+
+.right-plot[
+&lt;img src="index_files/figure-html/by-year-labs-out-1.png" width="100%" /&gt;
+]
+
+---
+
+class: content-slide
+
+# Adjusting themes
+
+.left-code[
+
+```r
+boardgames_year %&gt;% 
+  ggplot(aes(x = year_published,
+             y = n)) +
+  geom_line() +
+  labs(x = "Year Published",
+       y = "Count",
+       title = "Boardgames Published by Year") +
+  theme_minimal() +
+* theme(title = element_text(face = "bold"))
+```
+
+You may want to change things like the font size or font face of individual elements of your graph. You can access these via `theme`. There are many individual elements that you can update. They all require specifying an `element_*` to change them.
+]
+
+.right-plot[
+&lt;img src="index_files/figure-html/by-year-update-theme-out-1.png" width="100%" /&gt;
+]
+
+---
+
+class: content-slide
+
+# Adjusting themes
+
+.left-code[
+
+```r
+boardgames_year %&gt;% 
+  ggplot(aes(x = year_published,
+             y = n)) +
+  geom_line() +
+  labs(x = "Year Published",
+       y = "Count",
+       title = "Boardgames Published by Year") +
+  theme_minimal() +
+* theme(plot.title = element_text(face = "bold"))
+```
+
+Note that we changed *all* of the titles to be bold. We might not want to do that, but may prefer to adjust specific elements instead. Each element can be adjusted individually. Note the change in `theme` from `title` to `plot.title`.
+]
+
+.right-plot[
+&lt;img src="index_files/figure-html/by-year-update-theme-specific-out-1.png" width="100%" /&gt;
+]
+
+---
+
+class: content-slide
+
+# Adjusting scales
+
+.left-code[
+
+```r
+boardgames_year %&gt;% 
+  ggplot(aes(x = year_published,
+             y = n)) +
+  geom_line() +
+* scale_y_continuous(labels = scales::comma) +
+  labs(x = "Year Published",
+       y = "Count",
+       title = "Boardgames Published by Year") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+There are a series of `scale_&lt;aes&gt;_&lt;type&gt;` functions that let you adjust how your aesthetics are displayed. For example, we might want to reformat how our y-axis looks so that it has commas.
+]
+
+.right-plot[
+&lt;img src="index_files/figure-html/by-year-scales-out-1.png" width="100%" /&gt;
+]
+
+---
+
+class: content-slide
+
+# Adjusting limits
+
+.left-code[
+
+```r
+boardgames_year %&gt;% 
+  ggplot(aes(x = year_published,
+             y = n)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::comma) + 
+* xlim(1900, 2025) +
+  labs(x = "Year Published",
+       y = "Count",
+       title = "Boardgames Published by Year") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+You may want to adjust the limits of your graph. There are several ways to do this: **`xlim`** and `ylim`, internal to the `scale_&lt;aes&gt;_&lt;type&gt;` functions, or `coord_cartesian` among those.
+]
+
+.right-plot[
+&lt;img src="index_files/figure-html/by-year-xlim-out-1.png" width="100%" /&gt;
+]
+
+---
+
+class: content-slide
+
+# Adjusting limits
+
+.left-code[
+
+```r
+boardgames_year %&gt;% 
+  ggplot(aes(x = year_published,
+             y = n)) +
+  geom_line() +
+* scale_x_continuous(limits = c(1900, 2025)) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(x = "Year Published",
+       y = "Count",
+       title = "Boardgames Published by Year") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+You may want to adjust the limits of your graph. There are several ways to do this: `xlim` and `ylim`, internal to the **`scale_&lt;aes&gt;_&lt;type&gt;`** functions, or `coord_cartesian` among those.
+]
+
+.right-plot[
+&lt;img src="index_files/figure-html/by-year-scales-limit-out-1.png" width="100%" /&gt;
+]
+
+---
+
+class: content-slide
+
+# Adjusting limits
+
+.left-code[
+
+```r
+boardgames_year %&gt;% 
+  ggplot(aes(x = year_published,
+             y = n)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::comma) +
+* coord_cartesian(xlim = c(1900, 2025)) +
+  labs(x = "Year Published",
+       y = "Count",
+       title = "Boardgames Published by Year") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+You may want to adjust the limits of your graph. There are several ways to do this: `xlim` and `ylim`, internal to the `scale_&lt;aes&gt;_&lt;type&gt;` functions, or **`coord_cartesian`** among those.
+]
+
+.right-plot[
+&lt;img src="index_files/figure-html/by-year-coord_cartesian-out-1.png" width="100%" /&gt;
+]
+
+---
+
+class: content-slide
+
+# Adjusting limits
+
+.left-code[
+
+```r
+boardgames_year %&gt;% 
+  ggplot(aes(x = year_published,
+             y = n)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::comma) +
+* coord_cartesian(xlim = c(1900, 2025)) +
+  labs(x = "Year Published",
+       y = "Count",
+       title = "Boardgames Published by Year") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+Note that these don't *look* different, but you'd likely prefer `coord_cartesian` in practice. `coord_cartesian` zooms in without changing underlying data whereas the scale functions ignore the underlying data.
+]
+
+.right-plot[
+&lt;img src="index_files/figure-html/by-year-coord_cartesian-2-out-1.png" width="100%" /&gt;
+]
+
+---
+
+class: content-slide
+
+# For next week
+
+Complete your assignment by 5:59 pm submitted via GitHub.
+
+#### Textbook
+-   [Chapter 12 - Tidy data](https://r4ds.had.co.nz/tidy-data.html)
+-   [Chapter 13 - Relational data](https://r4ds.had.co.nz/relational-data.html)
+
+---
+
+class: title-slide, middle
+layout: false
+
+# Foundations of R for Data Analysis
+
+### Week 04: Data Cleaning Tools
+
+Ryan Harrington&lt;br&gt;
+October 18, 2021&lt;br&gt;
+University of Delaware&lt;br&gt;
+College of Professional &amp; Continuing Studies
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"slideNumberFormat": "%current%/%total%",
+"highlightStyle": "github",
+"highlightLines": true,
+"ratio": "16:9",
+"countIncrementalSlides": true
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
