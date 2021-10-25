@@ -11,6 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 1. Use the following code chunk to get started with the assignment. This chunk loads the `tidyverse` and `here` packages. Why does this work? What is the `pacman` package and why is it valuable?
 
+p_load is a function that can load a vector of multiple packages. It substitutes for the 'install.packages' and 'library' commands. It is part of the pacman package which runs or combines lower level functions into single commands with intuitive names and is used for package related functions such as installing and getting descriptions, dependencies, citations, or other information.    
+
 ```{r}
 if(! require("pacman")) install.packages("pacman")
 
@@ -23,12 +25,17 @@ pacman::p_load(
 2. Read the `burritos.csv` file located in the `Data` folder into an object called `burritos`.
 
 ```{r}
-
+burritos <- read_csv(here::here("Data", "burritos.csv"))
+str(burritos)
+                     
 ```
 
 3. Determine how many `NA` values exist in each column.
 
 ```{r}
+
+burritos %>%
+  summarize(across(everything(), ~sum(is.na(.))))
 
 ```
 
@@ -36,17 +43,31 @@ pacman::p_load(
 
 ```{r}
 
+
+burritos <- 
+burritos %>%
+  mutate(across(Beef:Zucchini, ~if_else(is.na(.), F, T)))
+
+
+
 ```
 
 5. For these same fields, determine how many burritos include each ingredient.
 
 ```{r}
 
+burritos %>%
+  summarize(across(Beef:Zucchini, ~sum(. == TRUE)))
+ 
+
 ```
 
 6. Several of the burritos are missing Yelp and Google review values. Replace the missing values by imputing them with the *median* of their respective column. Overwrite the original dataframe with the newly mutated dataframe.
 
 ```{r}
+burritos <- 
+burritos %>%
+    mutate(across(Yelp:Google, ~ replace_na(., median(., na.rm = T))))
 
 ```
 
@@ -54,13 +75,49 @@ pacman::p_load(
 
 ```{r}
 
+burritos <- 
+burritos %>%
+    mutate(across(Length:Volume, ~ replace_na(., mean(., na.rm = T))))
+
+
 ```
 
 8. The `Rec` column is messy. Convert it to a logical field. Overwrite the original dataframe with the newly mutated dataframe.
 
 ```{r}
+unique(burritos$Rec)
+
+burritos <- 
+burritos %>%
+  mutate(Rec = if_else(Rec == "Yes" | Rec == "yes" | Rec == "Y", T, F))
+
+#I am assuming we would want to leave the NAs in this column - if True is Recommended and False is Not Recommended, it would still be valid to have a category of neither recommended nor not recommended. 
 
 ```
 
 9. Create and answer a question to answer about the burritos dataset utilizing any of the techniques we discussed in class this week. Utilize themes to improve your visualization.
+
+Do larger burritos (length and circumference) correlate with higher reviews? Apparently not. 
+
+```{r}
+burritos %>%
+  group_by(Location, Burrito) %>%
+  mutate(mean_review = mean(c(Yelp, Google), na.rm = T)) %>%
+  ungroup() %>%
+  ggplot() +
+  geom_point(aes(x = Length, y = mean_review, color = "Length")) +
+  geom_smooth(aes(x = Length, y = mean_review, color = "Length")) +
+  geom_point(aes(x = Circum, y = mean_review, color = "Circumference")) + 
+  geom_smooth(aes(x = Circum, y = mean_review, color = "Circumference")) +
+  labs(color = "Burrito Attribute",
+       x = "Centimeters",
+       y = "Review Score",
+       title = "Burrito Size vs Reviews") +
+  theme_classic() +
+  theme(plot.title = element_text(face = "bold"))
+               
+
+
+
+```
 
